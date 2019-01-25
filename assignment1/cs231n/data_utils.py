@@ -228,3 +228,7 @@ def load_models(models_dir):
       except pickle.UnpicklingError:
         continue
   return models
+
+
+def some_function():
+  return 32
