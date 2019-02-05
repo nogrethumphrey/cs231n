@@ -45,16 +45,19 @@ class LinearClassifier(object):
       # Sample batch_size elements from the training data and their           #
       # corresponding labels to use in this round of gradient descent.        #
       # Store the data in X_batch and their corresponding labels in           #
-      # y_batch; after sampling X_batch should have shape (dim, batch_size)   #
+      # y_batch; after sampling X_batch should have shape (batch_size, dim)   #
       # and y_batch should have shape (batch_size,)                           #
       #                                                                       #
       # Hint: Use np.random.choice to generate indices. Sampling with         #
       # replacement is faster than sampling without replacement.              #
       #########################################################################
-      pass
+      indexes = np.random.choice(np.arange(X.shape[0]),batch_size)
+      X_batch=X[indexes]
+      y_batch=y[indexes]
       #########################################################################
       #                       END OF YOUR CODE                                #
       #########################################################################
+
 
       # evaluate loss and gradient
       loss, grad = self.loss(X_batch, y_batch, reg)
@@ -65,7 +68,7 @@ class LinearClassifier(object):
       # TODO:                                                                 #
       # Update the weights using the gradient and the learning rate.          #
       #########################################################################
-      pass
+      self.W = self.W-learning_rate * grad
       #########################################################################
       #                       END OF YOUR CODE                                #
       #########################################################################
@@ -98,6 +101,7 @@ class LinearClassifier(object):
     ###########################################################################
     #                           END OF YOUR CODE                              #
     ###########################################################################
+    y_pred = np.argmax(X.dot(self.W),axis=1)
     return y_pred
   
   def loss(self, X_batch, y_batch, reg):

@@ -105,6 +105,9 @@ def eval_numerical_gradient_net(net, inputs, output, h=1e-5):
 
 def grad_check_sparse(f, x, analytic_grad, num_checks=10, h=1e-5):
   """
+  f:the function
+  x:the input 
+  analytic_grad:the gradients
   sample a few random elements and only return numerical
   in this dimensions.
   """
