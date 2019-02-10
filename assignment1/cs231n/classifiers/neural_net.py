@@ -2,11 +2,12 @@ from __future__ import print_function
 
 import numpy as np
 import matplotlib.pyplot as plt
+import softmax.softmax_loss_vectorized
 
 class TwoLayerNet(object):
   """
   A two-layer fully-connected neural network. The net has an input dimension of
-  N, a hidden layer dimension of H, and performs classification over C classes.
+  D, a hidden layer dimension of H, and performs classification over C classes.
   We train the network with a softmax loss function and L2 regularization on the
   weight matrices. The network uses a ReLU nonlinearity after the first fully
   connected layer.
@@ -75,7 +76,12 @@ class TwoLayerNet(object):
     # Store the result in the scores variable, which should be an array of      #
     # shape (N, C).                                                             #
     #############################################################################
-    pass
+    
+    scores = (np.maximum(0,(X.dot(W1)+b1).dot(W2))+b2
+    ###to ensure numerical stability
+    scores = scores - np.max(scores,axis=1)
+    scores = np.exp(scores)
+    scores = scores / np.sum(scores,axis=1)
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -87,12 +93,21 @@ class TwoLayerNet(object):
     # Compute the loss
     loss = None
     #############################################################################
-    # TODO: Finish the forward pass, and compute the loss. This should include  #
+
     # both the data loss and L2 regularization for W1 and W2. Store the result  #
     # in the variable loss, which should be a scalar. Use the Softmax           #
     # classifier loss.                                                          #
     #############################################################################
-    pass
+
+    #W1b1 = np.vstack(W1,b1)
+    #W2b2 = np.vstack(W2,b2)
+
+    #X = np.hstack((X,np.ones(N,1)))
+    layer_one_linear_output = X.dot(W1b1) #NxH
+    layer_one_relu_output = np.max(0,layer_one_output) #NxH
+    
+    #loss,dW2 = softmax_loss_vectorized(W2b2,layer_one_output,y,reg)
+
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -104,7 +119,26 @@ class TwoLayerNet(object):
     # and biases. Store the results in the grads dictionary. For example,       #
     # grads['W1'] should store the gradient on W1, and be a matrix of same size #
     #############################################################################
-    pass
+    
+    ##gradients of loss with regard to second output
+    scores[range(num_samples),y] -= 1  #NxC
+    
+    loss_to_linear_layer_two_gradient = scores # NxC
+
+    ##output matrix multiply the backward gradient
+    dW2 =  layer_one_relu_output.T.dot(loss_to_linear_layer_two_gradient) #(NxH).T * NxC = HxC
+    db2 =  np.sum(loss_to_linear_layer_two_gradient,axis=0) ##dz/db = 1 actually
+
+    loss_to_linear_layer_one_gradient = W2.dot(loss_to_linear_layer_two_gradient.T) #HxC * (NxC).T = HxN
+    layer_one_linear_output_mask = layer_one_linear_output >0
+
+    ####loss to linear layer one gradient.the matrix will be very sparse after relu
+    loss_to_linear_layer_one_gradient = loss_to_linear_layer_one_gradient * layer_one_linear_output_mask #HxN
+
+    ####backward 
+    dW1 = X.T.dot(loss_to_linear_layer_one_gradient) ##(NxD).T * HxN = DxH
+    db1 = np.sum(loss_to_linear_layer_one_gradient,axis=1)
+
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
