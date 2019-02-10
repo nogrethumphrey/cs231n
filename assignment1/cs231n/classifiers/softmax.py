@@ -96,7 +96,7 @@ def softmax_loss_vectorized(W, X, y, reg):
 
   total_scores[range(num_samples),y] -= 1 ###gradients of loss vs output of second linear layer.
   dW = X.T.dot(total_scores)
-  dW + = reg * W
+  dW += reg * W
 
   return loss, dW
 

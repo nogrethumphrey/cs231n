@@ -2,7 +2,6 @@ from __future__ import print_function
 
 import numpy as np
 import matplotlib.pyplot as plt
-import softmax.softmax_loss_vectorized
 
 class TwoLayerNet(object):
   """
@@ -37,6 +36,7 @@ class TwoLayerNet(object):
     """
     self.params = {}
     self.params['W1'] = std * np.random.randn(input_size, hidden_size)
+    print(self.params['W1'])
     self.params['b1'] = np.zeros(hidden_size)
     self.params['W2'] = std * np.random.randn(hidden_size, output_size)
     self.params['b2'] = np.zeros(output_size)
@@ -77,11 +77,13 @@ class TwoLayerNet(object):
     # shape (N, C).                                                             #
     #############################################################################
     
-    scores = (np.maximum(0,(X.dot(W1)+b1).dot(W2))+b2
+    layer_one_linear_output = X.dot(W1) + b1 #NxH
+    layer_one_relu_output = np.maximum(0,layer_one_linear_output) #NxH
+    
+    scores = layer_one_relu_output.dot(W2)+b2
     ###to ensure numerical stability
-    scores = scores - np.max(scores,axis=1)
-    scores = np.exp(scores)
-    scores = scores / np.sum(scores,axis=1)
+    #scores = scores-np.max(scores,axis=1,keepdims=True)
+    
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -99,19 +101,6 @@ class TwoLayerNet(object):
     # classifier loss.                                                          #
     #############################################################################
 
-    #W1b1 = np.vstack(W1,b1)
-    #W2b2 = np.vstack(W2,b2)
-
-    #X = np.hstack((X,np.ones(N,1)))
-    layer_one_linear_output = X.dot(W1b1) #NxH
-    layer_one_relu_output = np.max(0,layer_one_output) #NxH
-    
-    #loss,dW2 = softmax_loss_vectorized(W2b2,layer_one_output,y,reg)
-
-    #############################################################################
-    #                              END OF YOUR CODE                             #
-    #############################################################################
-
     # Backward pass: compute gradients
     grads = {}
     #############################################################################
@@ -121,23 +110,33 @@ class TwoLayerNet(object):
     #############################################################################
     
     ##gradients of loss with regard to second output
-    scores[range(num_samples),y] -= 1  #NxC
+     
+
+    scores = scores -np.amax(scores,axis=1,keepdims=True)
+    scores = np.exp(scores)
+    scores = scores/np.sum(scores,axis=1,keepdims=True)
+
+    loss = -np.log(scores[np.arange(N),y])
+    loss = np.sum(loss)/N + 0.5*reg*np.linalg.norm(W1) + 0.5*reg*np.linalg.norm(W2)
+    scores[range(N),y] -= 1  #NxC
     
     loss_to_linear_layer_two_gradient = scores # NxC
 
     ##output matrix multiply the backward gradient
-    dW2 =  layer_one_relu_output.T.dot(loss_to_linear_layer_two_gradient) #(NxH).T * NxC = HxC
-    db2 =  np.sum(loss_to_linear_layer_two_gradient,axis=0) ##dz/db = 1 actually
+    grads['W2'] =  layer_one_relu_output.T.dot(loss_to_linear_layer_two_gradient) #(NxH).T * NxC = HxC
+    grads['b2'] =  np.sum(loss_to_linear_layer_two_gradient,axis=0) ##dz/db = 1 actually
 
     loss_to_linear_layer_one_gradient = W2.dot(loss_to_linear_layer_two_gradient.T) #HxC * (NxC).T = HxN
-    layer_one_linear_output_mask = layer_one_linear_output >0
 
     ####loss to linear layer one gradient.the matrix will be very sparse after relu
-    loss_to_linear_layer_one_gradient = loss_to_linear_layer_one_gradient * layer_one_linear_output_mask #HxN
+    loss_to_linear_layer_one_gradient[layer_one_linear_output.T <= 0] = 0 #HxN
 
     ####backward 
-    dW1 = X.T.dot(loss_to_linear_layer_one_gradient) ##(NxD).T * HxN = DxH
-    db1 = np.sum(loss_to_linear_layer_one_gradient,axis=1)
+    grads['W1'] = X.T.dot(loss_to_linear_layer_one_gradient.T) ##HxN * NxD = HxD
+    grads['b1'] = np.sum(loss_to_linear_layer_one_gradient,axis=1)
+
+    grads['W1'] +=  reg * W1
+    grads['W2'] +=  reg * W2
 
     #############################################################################
     #                              END OF YOUR CODE                             #
@@ -182,7 +181,9 @@ class TwoLayerNet(object):
       # TODO: Create a random minibatch of training data and labels, storing  #
       # them in X_batch and y_batch respectively.                             #
       #########################################################################
-      pass
+      indexes = np.random.choice(np.arange(X.shape[0]),batch_size)
+      X_batch=X[indexes]
+      y_batch=y[indexes]
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -197,7 +198,12 @@ class TwoLayerNet(object):
       # using stochastic gradient descent. You'll need to use the gradients   #
       # stored in the grads dictionary defined above.                         #
       #########################################################################
-      pass
+      
+      W1 = W1 - self.grads['W1']
+      W2 = W2 - grads['W2']
+      
+      b1 = b1 - grads['b1']
+      b2 = b2 - grads['b2']
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -242,7 +248,16 @@ class TwoLayerNet(object):
     ###########################################################################
     # TODO: Implement this function; it should be VERY simple!                #
     ###########################################################################
-    pass
+    layer_one_linear_output = X.dot(self.params['W1']) + self.params['b1'] #NxH
+    layer_one_relu_output = np.max(0,layer_one_linear_output) #NxH
+    
+    scores = layer_one_relu_output.dot(self.params['W2']) + self.params['b2']
+    ###to ensure numerical stability
+    scores = scores - np.max(scores,axis=1)
+    scores = np.exp(scores)
+    scores = scores / np.sum(scores,axis=1)
+
+    y_pred = np.argmax(scores,axis=1)
     ###########################################################################
     #                              END OF YOUR CODE                           #
     ###########################################################################
