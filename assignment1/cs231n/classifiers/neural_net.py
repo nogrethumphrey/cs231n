@@ -126,14 +126,14 @@ class TwoLayerNet(object):
     grads['W2'] =  layer_one_relu_output.T.dot(loss_to_linear_layer_two_gradient) #(NxH).T * NxC = HxC
     grads['b2'] =  np.sum(loss_to_linear_layer_two_gradient,axis=0) ##dz/db = 1 actually
 
-    loss_to_linear_layer_one_gradient = W2.dot(loss_to_linear_layer_two_gradient.T) #HxC * (NxC).T = HxN
+    loss_to_linear_layer_one_gradient = loss_to_linear_layer_two_gradient.dot(W2.T) #NxC * (HxC).T= NxH
 
     ####loss to linear layer one gradient.the matrix will be very sparse after relu
-    loss_to_linear_layer_one_gradient[layer_one_linear_output.T <= 0] = 0 #HxN
+    loss_to_linear_layer_one_gradient[layer_one_linear_output <= 0] = 0 #NxH
 
     ####backward 
-    grads['W1'] = X.T.dot(loss_to_linear_layer_one_gradient.T) ##HxN * NxD = HxD
-    grads['b1'] = np.sum(loss_to_linear_layer_one_gradient,axis=1)
+    grads['W1'] = X.T.dot(loss_to_linear_layer_one_gradient) ##(NxD).T * NxH = DxH
+    grads['b1'] = np.sum(loss_to_linear_layer_one_gradient,axis=0)
 
     grads['W1'] +=  reg * W1
     grads['W2'] +=  reg * W2
@@ -253,9 +253,9 @@ class TwoLayerNet(object):
     
     scores = layer_one_relu_output.dot(self.params['W2']) + self.params['b2']
     ###to ensure numerical stability
-    scores = scores - np.amax(scores,axis=1)
+    scores = scores - np.amax(scores,axis=1,keepdims=True)
     scores = np.exp(scores)
-    scores = scores / np.sum(scores,axis=1)
+    scores = scores / np.sum(scores,axis=1,keepdims=1)
 
     y_pred = np.argmax(scores,axis=1)
     ###########################################################################
