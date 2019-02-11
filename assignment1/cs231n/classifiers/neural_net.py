@@ -117,7 +117,7 @@ class TwoLayerNet(object):
     scores = scores/np.sum(scores,axis=1,keepdims=True)
 
     loss = -np.log(scores[np.arange(N),y])
-    loss = np.sum(loss)/N + 0.5*reg*np.linalg.norm(W1) + 0.5*reg*np.linalg.norm(W2)
+    loss = np.sum(loss)/N + 2*reg*np.linalg.norm(W1) + 2*reg*np.linalg.norm(W2)
     scores[range(N),y] -= 1  #NxC
     
     loss_to_linear_layer_two_gradient = scores # NxC
@@ -199,11 +199,11 @@ class TwoLayerNet(object):
       # stored in the grads dictionary defined above.                         #
       #########################################################################
       
-      W1 = W1 - self.grads['W1']
-      W2 = W2 - grads['W2']
+      self.params['W1'] = self.params['W1'] - grads['W1']
+      self.params['W2'] = self.params['W2'] - grads['W2']
       
-      b1 = b1 - grads['b1']
-      b2 = b2 - grads['b2']
+      self.params['b1'] = self.params['b1'] - grads['b1']
+      self.params['b2'] = self.params['b2'] - grads['b2']
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -249,11 +249,11 @@ class TwoLayerNet(object):
     # TODO: Implement this function; it should be VERY simple!                #
     ###########################################################################
     layer_one_linear_output = X.dot(self.params['W1']) + self.params['b1'] #NxH
-    layer_one_relu_output = np.max(0,layer_one_linear_output) #NxH
+    layer_one_relu_output = np.maximum(0,layer_one_linear_output) #NxH
     
     scores = layer_one_relu_output.dot(self.params['W2']) + self.params['b2']
     ###to ensure numerical stability
-    scores = scores - np.max(scores,axis=1)
+    scores = scores - np.amax(scores,axis=1)
     scores = np.exp(scores)
     scores = scores / np.sum(scores,axis=1)
 
