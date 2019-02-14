@@ -36,7 +36,6 @@ class TwoLayerNet(object):
     """
     self.params = {}
     self.params['W1'] = std * np.random.randn(input_size, hidden_size)
-    print(self.params['W1'])
     self.params['b1'] = np.zeros(hidden_size)
     self.params['W2'] = std * np.random.randn(hidden_size, output_size)
     self.params['b2'] = np.zeros(output_size)
@@ -79,7 +78,7 @@ class TwoLayerNet(object):
     
     layer_one_linear_output = X.dot(W1) + b1 #NxH
     layer_one_relu_output = np.maximum(0,layer_one_linear_output) #NxH
-    
+
     scores = layer_one_relu_output.dot(W2)+b2
     ###to ensure numerical stability
     #scores = scores-np.max(scores,axis=1,keepdims=True)
@@ -112,15 +111,15 @@ class TwoLayerNet(object):
     ##gradients of loss with regard to second output
      
 
-    scores = scores -np.amax(scores,axis=1,keepdims=True)
+    #scores = scores -np.amax(scores,axis=1,keepdims=True)
     scores = np.exp(scores)
     scores = scores/np.sum(scores,axis=1,keepdims=True)
 
     loss = -np.log(scores[np.arange(N),y])
-    loss = np.sum(loss)/N + 2*reg*np.linalg.norm(W1) + 2*reg*np.linalg.norm(W2)
-    scores[range(N),y] -= 1  #NxC
+    loss = np.sum(loss)/N + 2*reg*np.sum(W1*W1) + 2*reg*np.sum(W2*W2)
     
-    loss_to_linear_layer_two_gradient = scores # NxC
+    scores[range(N),y] -= 1  #NxC
+    loss_to_linear_layer_two_gradient = scores/N # NxC
 
     ##output matrix multiply the backward gradient
     grads['W2'] =  layer_one_relu_output.T.dot(loss_to_linear_layer_two_gradient) #(NxH).T * NxC = HxC
@@ -137,7 +136,6 @@ class TwoLayerNet(object):
 
     grads['W1'] +=  reg * W1
     grads['W2'] +=  reg * W2
-
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -199,11 +197,11 @@ class TwoLayerNet(object):
       # stored in the grads dictionary defined above.                         #
       #########################################################################
       
-      self.params['W1'] = self.params['W1'] - grads['W1']
-      self.params['W2'] = self.params['W2'] - grads['W2']
+      self.params['W1'] +=- learning_rate * grads['W1']
+      self.params['W2'] += - learning_rate * grads['W2']
       
-      self.params['b1'] = self.params['b1'] - grads['b1']
-      self.params['b2'] = self.params['b2'] - grads['b2']
+      self.params['b1'] += - learning_rate * grads['b1']
+      self.params['b2'] += - learning_rate * grads['b2']
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -253,7 +251,7 @@ class TwoLayerNet(object):
     
     scores = layer_one_relu_output.dot(self.params['W2']) + self.params['b2']
     ###to ensure numerical stability
-    scores = scores - np.amax(scores,axis=1,keepdims=True)
+    #scores = scores - np.amax(scores,axis=1,keepdims=True)
     scores = np.exp(scores)
     scores = scores / np.sum(scores,axis=1,keepdims=1)
 
