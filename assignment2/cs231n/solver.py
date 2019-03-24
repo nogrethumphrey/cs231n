@@ -49,7 +49,7 @@ class Solver(object):
                     },
                     lr_decay=0.95,
                     num_epochs=10, batch_size=100,
-                    print_every=100)
+                    print_evelossry=100)
     solver.train()
 
 

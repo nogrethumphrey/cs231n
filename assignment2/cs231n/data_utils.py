@@ -21,6 +21,7 @@ def load_CIFAR_batch(filename):
         datadict = load_pickle(f)
         X = datadict['data']
         Y = datadict['labels']
+        ####some technique for data processing
         X = X.reshape(10000, 3, 32, 32).transpose(0,2,3,1).astype("float")
         Y = np.array(Y)
         return X, Y
@@ -64,6 +65,9 @@ def get_CIFAR10_data(num_training=49000, num_validation=1000, num_test=1000,
     y_test = y_test[mask]
 
     # Normalize the data: subtract the mean image
+    ##Why normalize data.The effect of normalizing is making the sample data small.
+    ##Potentially there is no overflow.because we have many sum-all operations in the
+    ##back propagation.
     if subtract_mean:
         mean_image = np.mean(X_train, axis=0)
         X_train -= mean_image
@@ -71,6 +75,7 @@ def get_CIFAR10_data(num_training=49000, num_validation=1000, num_test=1000,
         X_test -= mean_image
 
     # Transpose so that channels come first
+    ##what is different between transpose and reshape.
     X_train = X_train.transpose(0, 3, 1, 2).copy()
     X_val = X_val.transpose(0, 3, 1, 2).copy()
     X_test = X_test.transpose(0, 3, 1, 2).copy()

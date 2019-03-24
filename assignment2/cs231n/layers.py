@@ -25,7 +25,8 @@ def affine_forward(x, w, b):
     # TODO: Implement the affine forward pass. Store the result in out. You   #
     # will need to reshape the input into rows.                               #
     ###########################################################################
-    pass
+    reshaped = np.reshape(x,(x.shape[0],-1))
+    out = reshaped.dot(w)+b
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -54,7 +55,18 @@ def affine_backward(dout, cache):
     ###########################################################################
     # TODO: Implement the affine backward pass.                               #
     ###########################################################################
-    pass
+    ####Why do we have to sum up all the samples for gradient of db?
+    db = np.sum(dout,axis=0) #(M,)
+    x_shape = x.shape 
+    x_reshaped = np.reshape(x,(x_shape[0],-1)) #NxD
+
+    ####We didn't sum up all the samples for dx.Why?First dx in our case is not
+    ####the gradient we want to compute.(db,dw is our target).When we calculate
+    ##In order to get dw and db,we have to calculate with respect to all the samples.
+    dx = dout.dot(w.T)# NxD  
+    dx = dx.reshape(x_shape) #N,d1,d2,...d_k
+    dw = x_reshaped.T.dot(dout) #DxM
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -76,7 +88,7 @@ def relu_forward(x):
     ###########################################################################
     # TODO: Implement the ReLU forward pass.                                  #
     ###########################################################################
-    pass
+    out = np.maximum(0,x)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -99,7 +111,9 @@ def relu_backward(dout, cache):
     ###########################################################################
     # TODO: Implement the ReLU backward pass.                                 #
     ###########################################################################
-    pass
+    
+    dout[x<=0] = 0
+    dx = dout
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -191,7 +205,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #                          END OF YOUR CODE                           #
         #######################################################################
     else:
-        raise ValueError('Invalid forward batchnorm mode "%s"' % mode)
+        raise ValueError('Invalid forward bataffine_relu_forwardchnorm mode "%s"' % mode)
 
     # Store the updated running means back into bn_param
     bn_param['running_mean'] = running_mean
@@ -220,10 +234,10 @@ def batchnorm_backward(dout, cache):
     dx, dgamma, dbeta = None, None, None
     ###########################################################################
     # TODO: Implement the backward pass for batch normalization. Store the    #
-    # results in the dx, dgamma, and dbeta variables.                         #
-    # Referencing the original paper (https://arxiv.org/abs/1502.03167)       #
-    # might prove to be helpful.                                              #
-    ###########################################################################
+    # results in the dx, daffine_forwardgamma, and dbeta variables.                         #
+    # Referencing the origaffine_forwardinal paper (https://arxiv.org/abs/1502.03167)       #
+    # might prove to be heaffine_forwardlpful.                                              #
+    ######################affine_forward#####################################################
     pass
     ###########################################################################
     #                             END OF YOUR CODE                            #
@@ -617,7 +631,7 @@ def spatial_groupnorm_forward(x, gamma, beta, G, gn_param):
     - beta: Shift parameter, of shape (C,)
     - G: Integer mumber of groups to split into, should be a divisor of C
     - gn_param: Dictionary with the following keys:
-      - eps: Constant for numeric stability
+  - eps: Constant for numeric stability
 
     Returns a tuple of:
     - out: Output data, of shape (N, C, H, W)
@@ -681,6 +695,7 @@ def svm_loss(x, y):
     """
     N = x.shape[0]
     correct_class_scores = x[np.arange(N), y]
+    
     margins = np.maximum(0, x - correct_class_scores[:, np.newaxis] + 1.0)
     margins[np.arange(N), y] = 0
     loss = np.sum(margins) / N
@@ -693,6 +708,7 @@ def svm_loss(x, y):
 
 
 def softmax_loss(x, y):
+    ##Formula https://deepnotes.io/softmax-crossentropy
     """
     Computes the loss and gradient for softmax classification.
 
@@ -706,6 +722,19 @@ def softmax_loss(x, y):
     - loss: Scalar giving the loss
     - dx: Gradient of the loss with respect to x
     """
+    #shifted_logits = np.exp(x - np.max(x, axis=1, keepdims=True))
+    #Z = np.sum(shifted_logits, axis=1, keepdims=True)
+    #import pdb; pdb.set_trace()
+    #log_probs = shifted_logits / Z
+    #
+    ###print(log_probs)
+    #
+    #N = x.shape[0]
+    #loss = -np.sum(log_probs[np.arange(N), y]) / N
+    #dx = log_probs.copy()
+    #dx[np.arange(N), y] -= 1
+    #dx /= N
+
     shifted_logits = x - np.max(x, axis=1, keepdims=True)
     Z = np.sum(np.exp(shifted_logits), axis=1, keepdims=True)
     log_probs = shifted_logits - np.log(Z)

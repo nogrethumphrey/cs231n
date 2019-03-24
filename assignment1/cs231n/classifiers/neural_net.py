@@ -111,7 +111,7 @@ class TwoLayerNet(object):
     ##gradients of loss with regard to second output
      
 
-    #scores = scores -np.amax(scores,axis=1,keepdims=True)
+    scores = scores -np.amax(scores,axis=1,keepdims=True)
     scores = np.exp(scores)
     scores = scores/np.sum(scores,axis=1,keepdims=True)
 
