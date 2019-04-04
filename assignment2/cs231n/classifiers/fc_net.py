@@ -192,13 +192,13 @@ class FullyConnectedNet(object):
         ############Hidden layer are the layers directly after input layer and before the softmax layer###
         length = len(hidden_dims)####number of hidden layer
         for i in range(length):
-          import pdb; pdb.set_trace()
           layer_str = str(i+1)
           if( i == 0):
             self.params['W'+layer_str] = np.random.normal(0, weight_scale, (input_dim, hidden_dims[i]))
             self.params['b'+layer_str] = np.zeros(hidden_dims[i])
-          self.params['W'+layer_str] = np.random.normal(0, weight_scale, (hidden_dims[i-1], hidden_dims[i]))
-          self.params['b'+layer_str] = np.zeros(hidden_dims[i])
+          else:
+            self.params['W'+layer_str] = np.random.normal(0, weight_scale, (hidden_dims[i-1], hidden_dims[i]))
+            self.params['b'+layer_str] = np.zeros(hidden_dims[i])
 
         ##the last hidden layer
         self.params['W'+str(length+1)] = np.random.normal(0, weight_scale, (hidden_dims[length-1],num_classes))
@@ -272,7 +272,7 @@ class FullyConnectedNet(object):
 
         ##calculate all the forward for hidden layers
         for i in range(self.num_layers-1):
-          import pdb; pdb.set_trace()
+          #import pdb; pdb.set_trace()
           if(i == 0):
             layer_out,layer_cache[i] = affine_relu_forward(X,self.params['W'+str(i+1)],self.params['b'+str(i+1)])
           else:
@@ -314,7 +314,7 @@ class FullyConnectedNet(object):
         #  import pdb; pdb.set_trace()
 
         loss_to_previous_layer_gradient = None
-        for i in reversed(self.num_layers):
+        for i in reversed(range(self.num_layers)):
           if(i == (self.num_layers -1)):
             loss_to_previous_layer_gradient,grads['W'+str(i+1)],grads['b'+str(i+1)] = affine_backward(loss_to_last_layer_gradient,layer_cache[i])
           else:
