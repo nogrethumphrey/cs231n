@@ -55,6 +55,27 @@ def affine_relu_backward(dout, cache):
     dx, dw, db = affine_backward(da, fc_cache)
     return dx, dw, db
 
+def affine_relu_layernorm_forward(x,w,b,gamma,beta,ln_param):
+    """
+    x:Input to the affine layer
+    w,b: Weights for the affine layer
+    gamma:Input for the batchnorm layer
+    beta:Input for the batchnorm layer.
+    - ln_param: Dictionary with the following keys:
+      - eps: Constant for numeric stability
+    """
+    a,fc_cache = affine_forward(x,w,b)
+    layernorm_out,layernorm_cache = layernorm_forward(a,gamma,beta,ln_param)
+    out,relu_cache = relu_forward(layernorm_out)
+    cache = (fc_cache,layernorm_cache,relu_cache)
+    return out,cache
+
+def affine_relu_layernorm_backward(dout,cache):
+    fc_cache,layernorm_cache,relu_cache = cache
+    dlayernorm=relu_backward(dout,relu_cache)
+    da, dgamma, dbeta = layernorm_backward(dlayernorm,layernorm_cache)
+    dx,dw,db=affine_backward(da,fc_cache)
+    return dx,dw,db,dgamma,dbeta
 
 def conv_relu_forward(x, w, b, conv_param):
     """

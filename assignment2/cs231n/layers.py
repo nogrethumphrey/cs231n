@@ -187,15 +187,15 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # variance, you should normalize the data based on the standard       #
         # deviation (square root of variance) instead!                        # 
         # Referencing the original paper (https://arxiv.org/abs/1502.03167)   #
-        # might prove to be helpful.                                          #
+        # might prove to be helpfugammal.                                          #
         #######################################################################
         
         ########This will calculate the per-dimentional mean and variance for the minibatch
         #####During testing we can not calculate the mean and variance.Because we have
         ##only one test data.But during training we actually already calcuated all the
         ##parameters.
-        mu = np.mean(x, axis=0) ##x NxD
-        var = np.var(x, axis=0)  
+        mu = np.mean(x, axis=0) ##x NxD D,
+        var = np.var(x, axis=0)  ##D,
 
         x_norm = (x - mu) / np.sqrt(var + eps) ##x NxD X_norm NxD
         out = gamma * x_norm + beta ##gamma is rescaling the normalized distribution.beta will shift the distribution
@@ -355,7 +355,11 @@ def layernorm_forward(x, gamma, beta, ln_param):
     # transformations you could perform, that would enable you to copy over   #
     # the batch norm code and leave it almost unchanged?                      #
     ###########################################################################
-    pass
+    mu = np.mean(x, axis=1,keepdims=True) ## Nx1
+    var = np.var(x, axis=1,keepdims=True) ## Nx1
+    x_norm = (x - mu) / np.sqrt(var + eps) ##x NxD X_norm NxD
+    out = gamma * x_norm + beta ##gamma is rescaling the normalized distribution.beta will shift the distribution
+    cache = (x,x_norm,mu,var,gamma,beta,eps)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -386,7 +390,21 @@ def layernorm_backward(dout, cache):
     # implementation of batch normalization. The hints to the forward pass    #
     # still apply!                                                            #
     ###########################################################################
-    pass
+    X, X_norm, mu, var, gamma, beta,eps = cache
+
+    #import pdb;pdb.set_trace()
+    N, D = X.shape
+
+    X_mu = X - mu ##mu:Nx1 X:NxD X_mu:NxD
+    std_inv = 1. / np.sqrt(var + eps)##var Nx1
+
+    dX_norm = dout * gamma##NxD * (1,D) broadcasting
+    dvar = np.sum(dX_norm * X_mu, axis=1,keepdims=True) * -.5 * std_inv**3#Nx1
+    dmu = np.sum(dX_norm * -std_inv, axis=1,keepdims=True) + dvar * np.mean(-2. * X_mu, axis=1,keepdims=True)
+
+    dx = (dX_norm * std_inv) + (dvar * 2 * X_mu / D) + (dmu / D)#
+    dgamma = np.sum(dout * X_norm, axis=0)
+    dbeta = np.sum(dout, axis=0)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
