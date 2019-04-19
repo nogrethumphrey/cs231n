@@ -53,13 +53,6 @@ def eval_numerical_gradient_array(f, x, df, h=1e-5):
         neg = f(x).copy()
         x[ix] = oldval
 
-        ###########Why do we have to multiply by df.What does df represent.
-        ###We have input function f.f will output matrix.x is the input varaible
-        ###If we change X[i].Then we could calculate how much has changed for
-        ###f(X[i]).But the changed output are still matrix.How do we calculate 
-        ###.U have to write the formulation in order to understand why its done like
-        ##this.This is actually really artistic.A very complicated formulations 
-        ##will be written with very simple numpy calculations.That's amazing
         grad[ix] = np.sum((pos - neg) * df) / (2 * h)
         it.iternext()
     return grad

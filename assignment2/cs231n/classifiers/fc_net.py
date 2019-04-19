@@ -171,7 +171,7 @@ class FullyConnectedNet(object):
         self.normalization = normalization
         self.use_dropout = dropout != 1
         self.reg = reg
-        self.num_layers = 1 + len(hidden_dims)
+        self.num_layers = 1 + len(hidden_dims)###Plus the softmax layer
         self.dtype = dtype
         self.params = {}
 
@@ -199,8 +199,12 @@ class FullyConnectedNet(object):
           else:
             self.params['W'+layer_str] = np.random.normal(0, weight_scale, (hidden_dims[i-1], hidden_dims[i]))
             self.params['b'+layer_str] = np.zeros(hidden_dims[i])
+      
+          if self.normalization=='batchnorm':
+            self.params['gamma'+layer_str] = np.ones(hidden_dims[i])
+            self.params['beta'+layer_str] = np.zeros(hidden_dims[i])
 
-        ##the last hidden layer
+        ##the last hidden layer before softmax(This is the last affine layer)
         self.params['W'+str(length+1)] = np.random.normal(0, weight_scale, (hidden_dims[length-1],num_classes))
         self.params['b'+str(length+1)] = np.zeros(num_classes)
 
@@ -270,14 +274,24 @@ class FullyConnectedNet(object):
         layer_cache = [None] * (self.num_layers)
         layer_out = None
 
-        ##calculate all the forward for hidden layers
+        ##calculate all the forward pass for hidden layers.For batch normalization
+        ##We should add batch_norm layer after affine_forward.This means that i have to
+        ##use affine_forward,batchnorm_forward,relu_forward in forward pass and
+        ##relu_backward,batchnorm_backward,affine_backward in backward pass
         for i in range(self.num_layers-1):
           #import pdb; pdb.set_trace()
-          if(i == 0):
-            layer_out,layer_cache[i] = affine_relu_forward(X,self.params['W'+str(i+1)],self.params['b'+str(i+1)])
+          layer_str = str(i+1)
+          if(i == 0) :
+            if self.normalization=='batchnorm':
+              layer_out,layer_cache[i] = affine_relu_batch_forward(X,self.params['W'+layer_str],self.params['b'+layer_str],self.params['gamma'+layer_str],self.params['beta'+layer_str],self.bn_params[i])
+            else:
+              layer_out,layer_cache[i] = affine_relu_forward(X,self.params['W'+layer_str],self.params['b'+layer_str])
           else:
-            layer_out,layer_cache[i] = affine_relu_forward(layer_out,self.params['W'+str(i+1)],self.params['b'+str(i+1)])
-        
+            if self.normalization=='batchnorm':
+              layer_out,layer_cache[i] = affine_relu_batch_forward(layer_out,self.params['W'+layer_str],self.params['b'+layer_str],self.params['gamma'+layer_str],self.params['beta'+layer_str],self.bn_params[i])
+            else:
+              layer_out,layer_cache[i] = affine_relu_forward(layer_out,self.params['W'+layer_str],self.params['b'+layer_str])
+
         scores,layer_cache[self.num_layers-1] = affine_forward(layer_out,self.params['W'+str(self.num_layers)],self.params['b'+str(self.num_layers)])
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -303,7 +317,7 @@ class FullyConnectedNet(object):
         ############################################################################
         
         ############loss should add all the regularization parameters
-        loss,loss_to_last_layer_gradient = softmax_loss(scores,y)
+        loss,loss_to_last_affine_layer_gradient = softmax_loss(scores,y)
         
         ###add all the regularizations to loss
         for i in range(self.num_layers):
@@ -315,11 +329,15 @@ class FullyConnectedNet(object):
 
         loss_to_previous_layer_gradient = None
         for i in reversed(range(self.num_layers)):
+          layer_str = str(i+1)
           if(i == (self.num_layers -1)):
-            loss_to_previous_layer_gradient,grads['W'+str(i+1)],grads['b'+str(i+1)] = affine_backward(loss_to_last_layer_gradient,layer_cache[i])
+            loss_to_previous_layer_gradient,grads['W'+layer_str],grads['b'+layer_str] = affine_backward(loss_to_last_affine_layer_gradient,layer_cache[i])
           else:
-            loss_to_previous_layer_gradient,grads['W'+str(i+1)],grads['b'+str(i+1)] = affine_relu_backward(loss_to_previous_layer_gradient,layer_cache[i])
-          grads['W'+str(i+1)] += self.reg * self.params['W'+str(i+1)]
+            if self.normalization=='batchnorm':
+              loss_to_previous_layer_gradient,grads['W'+layer_str],grads['b'+layer_str],grads['gamma'+layer_str],grads['beta'+layer_str] = affine_relu_batch_backward(loss_to_previous_layer_gradient,layer_cache[i])
+            else:
+              loss_to_previous_layer_gradient,grads['W'+layer_str],grads['b'+layer_str] = affine_relu_backward(loss_to_previous_layer_gradient,layer_cache[i])
+          grads['W'+layer_str] += self.reg * self.params['W'+layer_str]
  
         ############################################################################
         #                             END OF YOUR CODE                             #

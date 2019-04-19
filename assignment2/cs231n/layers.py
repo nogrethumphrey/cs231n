@@ -1,6 +1,6 @@
 from builtins import range
-import numpy as np
 
+import numpy as np
 
 def affine_forward(x, w, b):
     """
@@ -189,7 +189,21 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # Referencing the original paper (https://arxiv.org/abs/1502.03167)   #
         # might prove to be helpful.                                          #
         #######################################################################
-        pass
+        
+        ########This will calculate the per-dimentional mean and variance for the minibatch
+        #####During testing we can not calculate the mean and variance.Because we have
+        ##only one test data.But during training we actually already calcuated all the
+        ##parameters.
+        mu = np.mean(x, axis=0) ##x NxD
+        var = np.var(x, axis=0)  
+
+        x_norm = (x - mu) / np.sqrt(var + eps) ##x NxD X_norm NxD
+        out = gamma * x_norm + beta ##gamma is rescaling the normalized distribution.beta will shift the distribution
+
+        cache = (x, x_norm, mu, var, gamma, beta,eps)
+
+        running_mean = momentum * running_mean + (1 - momentum) * mu
+        running_var = momentum * running_var + (1 - momentum) * var
         #######################################################################
         #                           END OF YOUR CODE                          #
         #######################################################################
@@ -200,7 +214,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # then scale and shift the normalized data using gamma and beta.      #
         # Store the result in the out variable.                               #
         #######################################################################
-        pass
+        out = (x - bn_param['running_mean'])/np.sqrt(bn_param['running_var'] + eps)
+        
         #######################################################################
         #                          END OF YOUR CODE                           #
         #######################################################################
@@ -238,7 +253,22 @@ def batchnorm_backward(dout, cache):
     # Referencing the origaffine_forwardinal paper (https://arxiv.org/abs/1502.03167)       #
     # might prove to be heaffine_forwardlpful.                                              #
     ######################affine_forward#####################################################
-    pass
+    #import pdb;pdb.set_trace()
+    X, X_norm, mu, var, gamma,beta,eps = cache
+
+    N,D = X.shape
+
+    X_mu = X - mu
+    std_inv = 1. / np.sqrt(var + eps)
+
+    dX_norm = dout * gamma
+    dvar = np.sum(dX_norm * X_mu, axis=0) * -.5 * std_inv**3
+    dmu = np.sum(dX_norm * -std_inv, axis=0) + dvar * np.mean(-2. * X_mu, axis=0)
+
+    dx = (dX_norm * std_inv) + (dvar * 2 * X_mu / N) + (dmu / N)
+    dgamma = np.sum(dout * X_norm, axis=0)
+    dbeta = np.sum(dout, axis=0)
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -269,7 +299,21 @@ def batchnorm_backward_alt(dout, cache):
     # should be able to compute gradients with respect to the inputs in a     #
     # single statement; our implementation fits on a single 80-character line.#
     ###########################################################################
-    pass
+    X, X_norm, mu, var, gamma, beta,eps = cache
+
+    N, D = X.shape
+
+    X_mu = X - mu
+    std_inv = 1. / np.sqrt(var + eps)
+
+    dX_norm = dout * gamma
+    dvar = np.sum(dX_norm * X_mu, axis=0) * -.5 * std_inv**3
+    dmu = np.sum(dX_norm * -std_inv, axis=0) + dvar * np.mean(-2. * X_mu, axis=0)
+
+    dx = (dX_norm * std_inv) + (dvar * 2 * X_mu / N) + (dmu / N)
+    dgamma = np.sum(dout * X_norm, axis=0)
+    dbeta = np.sum(dout, axis=0)
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
