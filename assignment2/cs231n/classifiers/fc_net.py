@@ -272,6 +272,8 @@ class FullyConnectedNet(object):
         #####1 affine forward
         #####1 affine backward
         layer_cache = [None] * (self.num_layers)
+        dropout_cache = [None] * (self.num_layers-1)
+        dropout_layerout = [None] * (self.num_layers-1)
         layer_out = None
 
         ##calculate all the forward pass for hidden layers.For batch normalization
@@ -295,6 +297,8 @@ class FullyConnectedNet(object):
               layer_out,layer_cache[i] = affine_relu_layernorm_forward(layer_out,self.params['W'+layer_str],self.params['b'+layer_str],self.params['gamma'+layer_str],self.params['beta'+layer_str],self.bn_params[i])
             else:
               layer_out,layer_cache[i] = affine_relu_forward(layer_out,self.params['W'+layer_str],self.params['b'+layer_str])
+          if self.use_dropout:
+            layer_out,dropout_cache[i] = dropout_forward(layer_out,self.dropout_param)
 
         scores,layer_cache[self.num_layers-1] = affine_forward(layer_out,self.params['W'+str(self.num_layers)],self.params['b'+str(self.num_layers)])
         ############################################################################
@@ -331,18 +335,23 @@ class FullyConnectedNet(object):
           pass
         #  import pdb; pdb.set_trace()
 
+        ###Backpropagation should be done reversely
         loss_to_previous_layer_gradient = None
         for i in reversed(range(self.num_layers)):
           layer_str = str(i+1)
           if(i == (self.num_layers -1)):
             loss_to_previous_layer_gradient,grads['W'+layer_str],grads['b'+layer_str] = affine_backward(loss_to_last_affine_layer_gradient,layer_cache[i])
           else:
+            if self.use_dropout:
+                loss_to_previous_layer_gradient = dropout_backward(loss_to_previous_layer_gradient,dropout_cache[i])
             if self.normalization=='batchnorm':
               loss_to_previous_layer_gradient,grads['W'+layer_str],grads['b'+layer_str],grads['gamma'+layer_str],grads['beta'+layer_str] = affine_relu_batch_backward(loss_to_previous_layer_gradient,layer_cache[i])
             elif self.normalization=='layernorm':
               loss_to_previous_layer_gradient,grads['W'+layer_str],grads['b'+layer_str],grads['gamma'+layer_str],grads['beta'+layer_str] = affine_relu_layernorm_backward(loss_to_previous_layer_gradient,layer_cache[i])
             else:
               loss_to_previous_layer_gradient,grads['W'+layer_str],grads['b'+layer_str] = affine_relu_backward(loss_to_previous_layer_gradient,layer_cache[i])
+         
+            
           grads['W'+layer_str] += self.reg * self.params['W'+layer_str]
  
         ############################################################################
