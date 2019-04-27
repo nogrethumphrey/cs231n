@@ -1,6 +1,7 @@
 from builtins import range
 
 import numpy as np
+from cs231n.im2col import *
 
 def affine_forward(x, w, b):
     """
@@ -527,11 +528,32 @@ def conv_forward_naive(x, w, b, conv_param):
     # TODO: Implement the convolutional forward pass.                         #
     # Hint: you can use the function np.pad for padding.                      #
     ###########################################################################
-    pass
+    #########I have a question?
+    '''
+    Is the division whole division?If not,how to handle not whole division
+    Consider the whole division case for simplicity
+    '''
+    stride = conv_param['stride']
+    padding = conv_param['pad']
+    N, C, H, W = x.shape
+    F, C, HH, WW = w.shape
+
+    out_height = (H + 2 * padding - HH) / stride + 1
+    out_width = (W + 2 * padding - WW) / stride + 1
+
+    ###This img2col_indices is amazing.
+    x_col = im2col_indices(x,HH,WW,padding,stride=stride)
+    w_col = w.reshape((F,-1))
+    b_vector = np.reshape(b,(-1,1))
+    #import pdb;pdb.set_trace()
+    out = w_col.dot(x_col) + b_vector
+
+    out = out.reshape(F,int(out_height),int(out_width),N)###Amazing
+    out = out.transpose(3,0,1,2)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
-    cache = (x, w, b, conv_param)
+    cache = (x, w, b,x_col,w_col, conv_param)
     return out, cache
 
 
@@ -540,7 +562,7 @@ def conv_backward_naive(dout, cache):
     A naive implementation of the backward pass for a convolutional layer.
 
     Inputs:
-    - dout: Upstream derivatives.
+    - dout: Upstream derivatives.(dimention) [N,F,height,width]
     - cache: A tuple of (x, w, b, conv_param) as in conv_forward_naive
 
     Returns a tuple of:
@@ -552,7 +574,29 @@ def conv_backward_naive(dout, cache):
     ###########################################################################
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
-    pass
+    ##Note that the output dimention is N,F,outheight,outwidth
+    #Refer to this article https://wiseodd.github.io/techblog/2016/07/16/convnet-conv-layer/
+    x, w, b,x_col,w_col, conv_param = cache
+    N, C, H, W = x.shape
+    F, C, HH, WW = w.shape
+
+    db = np.sum(dout,axis=(0,2,3))###sum over all the samples
+    #db = db.reshape(F,-1)
+
+    # Transpose from 5x20x10x10 into 20x10x10x5, then reshape into 20x500
+    dout_reshaped = dout.transpose(1, 2, 3, 0).reshape(F, -1)
+    # 20x500 x 500x9 = 20x9
+    dw = dout_reshaped.dot(x_col.T)
+
+    # Reshape back to 20x1x3x3
+    dw = dw.reshape(w.shape)
+
+    w_reshaped = w.reshape(F,-1)
+    dx_col = w_reshaped.T.dot(dout_reshaped)
+    dx = col2im_indices(dx_col,x.shape,HH,WW,padding=conv_param['pad'],stride=conv_param['stride'])
+
+
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################

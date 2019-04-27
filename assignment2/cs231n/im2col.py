@@ -2,6 +2,9 @@ from builtins import range
 import numpy as np
 
 
+####This is so complicated.Who did this?
+######This is really a test for the understanding and usage of 
+##matrix manipernation.This is really difficult to understand what it's doing
 def get_im2col_indices(x_shape, field_height, field_width, padding=1, stride=1):
     # First figure out what the size of the output should be
     N, C, H, W = x_shape
@@ -10,14 +13,16 @@ def get_im2col_indices(x_shape, field_height, field_width, padding=1, stride=1):
     out_height = (H + 2 * padding - field_height) / stride + 1
     out_width = (W + 2 * padding - field_width) / stride + 1
 
-    i0 = np.repeat(np.arange(field_height), field_width)
-    i0 = np.tile(i0, C)
-    i1 = stride * np.repeat(np.arange(out_height), out_width)
-    j0 = np.tile(np.arange(field_width), field_height * C)
-    j1 = stride * np.tile(np.arange(out_width), out_height)
+    #import pdb;pdb.set_trace()
+    i0 = np.repeat(np.arange(field_height), field_width)###repeat filter field_width times
+    i0 = np.tile(i0, C)##streching the filter along the height
+    i1 = stride * np.repeat(np.arange(int(out_height)), int(out_width))##Now i1 represent the output matrix without depth.But actually stride*outwidth will represent the start index of the current stride into the input matrix width(row)
+    j0 = np.tile(np.arange(field_width), field_height * C)###streching the filter into vector but in a different way
+    j1 = stride * np.tile(np.arange(int(out_width)), int(out_height))##represent the vector for output matrix
     i = i0.reshape(-1, 1) + i1.reshape(1, -1)
     j = j0.reshape(-1, 1) + j1.reshape(1, -1)
 
+    ###streching the filter into one vector along the depth
     k = np.repeat(np.arange(C), field_height * field_width).reshape(-1, 1)
 
     return (k, i, j)
@@ -25,15 +30,22 @@ def get_im2col_indices(x_shape, field_height, field_width, padding=1, stride=1):
 
 def im2col_indices(x, field_height, field_width, padding=1, stride=1):
     """ An implementation of im2col based on some fancy indexing """
+    ##########This is really fancy indexing.Who did this?
     # Zero-pad the input
     p = padding
+    ##pad x with padding.padding does not change original x
     x_padded = np.pad(x, ((0, 0), (0, 0), (p, p), (p, p)), mode='constant')
+
 
     k, i, j = get_im2col_indices(x.shape, field_height, field_width, padding,
                                  stride)
 
     cols = x_padded[:, k, i, j]
+    #print(cols.shape)
     C = x.shape[1]
+
+    ###Tranpose do not change the shape.But reshape will change the shape.What
+    ##kind of shape does reshape into?Where does the sample number go into
     cols = cols.transpose(1, 2, 0).reshape(field_height * field_width * C, -1)
     return cols
 
