@@ -215,7 +215,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # then scale and shift the normalized data using gamma and beta.      #
         # Store the result in the out variable.                               #
         #######################################################################
-        out = (x - bn_param['running_mean'])/np.sqrt(bn_param['running_var'] + eps)
+        out = gamma*(x - bn_param['running_mean'])/np.sqrt(bn_param['running_var'] + eps)+beta
         
         #######################################################################
         #                          END OF YOUR CODE                           #
@@ -542,7 +542,7 @@ def conv_forward_naive(x, w, b, conv_param):
     out_width = (W + 2 * padding - WW) / stride + 1
 
     ###This img2col_indices is amazing.
-    x_col = im2col_indices(x,HH,WW,padding,stride=stride)
+    x_col = im2col_indices(x,HH,WW,padding,stride=stride)#####convert input matrix to 
     w_col = w.reshape((F,-1))
     b_vector = np.reshape(b,(-1,1))
     #import pdb;pdb.set_trace()
@@ -626,11 +626,39 @@ def max_pool_forward_naive(x, pool_param):
     ###########################################################################
     # TODO: Implement the max-pooling forward pass                            #
     ###########################################################################
-    pass
+    stride = pool_param['stride']
+    padding =  0
+    pool_width = pool_param['pool_width']
+    pool_height = pool_param['pool_height']
+
+    N, C, H, W = x.shape
+
+    out_height = (H - pool_width) / stride + 1
+    out_width = (W - pool_width) / stride + 1
+
+    ###This img2col_indices is amazing.
+
+ 
+    """
+    What we want to do is to simulate the max pool with convolution
+    max pool will need to stretch each stride filter into a column vector.
+    The different between max pool and conv is that conv layer deals with C
+    channels.But here for max pool we have F dimentions.We don't 
+    stride in F dimention into a long vector.However we want get a result matrix
+    with only the only filter.
+    """
+    x_reshaped = x.reshape(N*C,1,H,W)##T
+    x_col = im2col_indices(x_reshaped,int(pool_height),int(pool_width),padding,stride=stride)#####convert input matrix to 
+    max_idx = np.argmax(x_col, axis=0)
+    #import pdb;pdb.set_trace()
+    out = x_col[max_idx, range(max_idx.size)]
+    out = out.reshape(int(out_height),int(out_width),N,C)
+    out = out.transpose(2,3,0,1)##excellent
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
-    cache = (x, pool_param)
+    cache = (x,x_col,max_idx, pool_param)
     return out, cache
 
 
@@ -649,7 +677,31 @@ def max_pool_backward_naive(dout, cache):
     ###########################################################################
     # TODO: Implement the max-pooling backward pass                           #
     ###########################################################################
-    pass
+    
+    # 4x9800, as in the forward step
+    x, x_col,max_idx, pool_param = cache
+    N, C, H, W = x.shape
+    dx_col = np.zeros_like(x_col)
+
+    # 5x10x14x14 => 14x14x5x10, then flattened to 1x9800
+    # Transpose step is necessary to get the correct arrangement
+    dout_flat = dout.transpose(2, 3, 0, 1).ravel()
+
+    # Fill the maximum index of each column with the gradient
+
+    # Essentially putting each of the 9800 grads
+    # to one of the 4 row in 9800 locations, one at each column
+    dx_col[max_idx, range(max_idx.size)] = dout_flat
+
+    # We now have the stretched matrix of 4x9800, then undo it with col2im operation
+    # dX would be 50x1x28x28
+    pool_width = pool_param['pool_width']
+    pool_height = pool_param['pool_height']
+    stride = pool_param['stride']
+    dx = col2im_indices(dx_col, (N * C, 1, H, W),pool_height,pool_width, padding=0, stride=stride)
+
+    # Reshape back to match the input dimension: 5x10x28x28
+    dx = dx.reshape(x.shape)##帅气
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -663,7 +715,10 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     Inputs:
     - x: Input data of shape (N, C, H, W)
     - gamma: Scale parameter, of shape (C,)
+      gamma is C number of dimentions.Because spatial normalization will normalize against
+      N,H,W three dimentions
     - beta: Shift parameter, of shape (C,)
+      beta is similar to gamma
     - bn_param: Dictionary with the following keys:
       - mode: 'train' or 'test'; required
       - eps: Constant for numeric stability
@@ -679,6 +734,13 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     - cache: Values needed for the backward pass
     """
     out, cache = None, None
+    mode = bn_param['mode']
+    eps = bn_param.get('eps', 1e-5)
+    momentum = bn_param.get('momentum', 0.9)
+
+    N,C,H,W = x.shape
+    running_mean = bn_param.get('running_mean', np.zeros((1,C,1,1), dtype=x.dtype))
+    running_var = bn_param.get('running_var', np.zeros((1,C,1,1), dtype=x.dtype))
 
     ###########################################################################
     # TODO: Implement the forward pass for spatial batch normalization.       #
@@ -687,11 +749,25 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     # vanilla version of batch normalization you implemented above.           #
     # Your implementation should be very short; ours is less than five lines. #
     ###########################################################################
-    pass
+    if mode == 'train':
+      mu = np.mean(x, axis=(0,2,3),keepdims=True) ##x (1,C,1,1),
+      var = np.var(x, axis=(0,2,3),keepdims=True)  ##(1,C,1,1)
+
+      x_norm = (x - mu)/np.sqrt(var + eps) ##N,C,H,W 
+      out = gamma.reshape(1,C,1,1) * x_norm + beta.reshape(1,C,1,1) ##gamma is rescaling the normalized distribution.beta will shift the distribution
+
+      cache = (x, x_norm, mu, var, gamma, beta,eps)
+
+      running_mean = momentum * running_mean + (1 - momentum) * mu
+      running_var = momentum * running_var + (1 - momentum) * var
+    else:
+      out = gamma.reshape(1,C,1,1)*(x - bn_param['running_mean'])/np.sqrt(bn_param['running_var'] + eps)+beta.reshape(1,C,1,1)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
 
+    bn_param['running_mean'] = running_mean
+    bn_param['running_var'] = running_var
     return out, cache
 
 
@@ -717,7 +793,21 @@ def spatial_batchnorm_backward(dout, cache):
     # vanilla version of batch normalization you implemented above.           #
     # Your implementation should be very short; ours is less than five lines. #
     ###########################################################################
-    pass
+    
+    x, x_norm, mu, var, gamma, beta,eps = cache
+
+    N,C,H,W= x.shape
+
+    x_mu = x - mu#N,C,H,W
+    std_inv = 1. / np.sqrt(var + eps) #1,C,1,1
+
+    dx_norm = dout * gamma.reshape(1,C,1,1)#dout:N,C,H,W
+    dvar = np.sum(dx_norm * x_mu, axis=(0,2,3),keepdims=True) * -.5 * std_inv**3
+    dmu = np.sum(dx_norm * -std_inv, axis=(0,2,3),keepdims=True) + dvar * np.mean(-2. * x_mu, axis=(0,2,3),keepdims=True)
+    N_T = N * H*W
+    dx = (dx_norm * std_inv) + (dvar * 2 * x_mu / N_T) + (dmu / N_T)
+    dgamma = np.sum(dout * x_norm, axis=(0,2,3))
+    dbeta = np.sum(dout, axis=(0,2,3))
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################

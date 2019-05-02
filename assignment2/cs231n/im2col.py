@@ -15,7 +15,7 @@ def get_im2col_indices(x_shape, field_height, field_width, padding=1, stride=1):
 
     #import pdb;pdb.set_trace()
     i0 = np.repeat(np.arange(field_height), field_width)###repeat filter field_width times
-    i0 = np.tile(i0, C)##streching the filter along the height
+    i0 = np.tile(i0, C)##streching the filter along the height C times
     i1 = stride * np.repeat(np.arange(int(out_height)), int(out_width))##Now i1 represent the output matrix without depth.But actually stride*outwidth will represent the start index of the current stride into the input matrix width(row)
     j0 = np.tile(np.arange(field_width), field_height * C)###streching the filter into vector but in a different way
     j1 = stride * np.tile(np.arange(int(out_width)), int(out_height))##represent the vector for output matrix
