@@ -37,6 +37,29 @@ class ThreeLayerConvNet(object):
         self.params = {}
         self.reg = reg
         self.dtype = dtype
+        C,H,W = input_dim
+        
+        ##after convolution layer,the dimention remains the same
+        W1 = np.random.normal(0,weight_scale,(num_filters, C,filter_size,filter_size))
+        b1 = np.zeros(num_filters)
+
+        ##after pool layer,the dimention will decrease (W-pool_size)/pool_size+1
+        pool_output_H = int((H-2)/2+1)
+        pool_output_w = int((W-2)/2+1)
+
+        ###hidden layer,stretching the output of max pool into one vector
+        W2 = np.random.normal(0,weight_scale,(num_filters*pool_output_H*pool_output_w,hidden_dim))
+        b2 = np.zeros(hidden_dim)
+
+        W3 = np.random.normal(0,weight_scale,(hidden_dim,num_classes))
+        b3 = np.zeros(num_classes)
+        
+        self.params['W1'] = W1
+        self.params['b1'] = b1
+        self.params['W2'] = W2
+        self.params['b2'] = b2
+        self.params['W3'] = W3
+        self.params['b3'] = b3
 
         ############################################################################
         # TODO: Initialize weights and biases for the three-layer convolutional    #
@@ -53,7 +76,7 @@ class ThreeLayerConvNet(object):
         # **the width and height of the input are preserved**. Take a look at      #
         # the start of the loss() function to see how that happens.                #                           
         ############################################################################
-        pass
+        
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -81,6 +104,8 @@ class ThreeLayerConvNet(object):
         pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
 
         scores = None
+        loss, grads = 0, {}
+
         ############################################################################
         # TODO: Implement the forward pass for the three-layer convolutional net,  #
         # computing the class scores for X and storing them in the scores          #
@@ -89,7 +114,34 @@ class ThreeLayerConvNet(object):
         # Remember you can use the functions defined in cs231n/fast_layers.py and  #
         # cs231n/layer_utils.py in your implementation (already imported).         #
         ############################################################################
-        pass
+        #import pdb; pdb.set_trace()
+
+        conv_pool_out, conv_pool_cache = conv_relu_pool_forward(X,W1,b1,conv_param,pool_param)
+        hidden_out,hidden_cache = affine_relu_forward(conv_pool_out,W2,b2)###dimention will change
+        scores,last_affine_layer_cache = affine_forward(hidden_out,W3,b3)
+
+        loss,loss_to_last_affine_gradient = softmax_loss(scores,y)
+        loss += 0.5*self.reg*(np.sum(np.square(self.params['W1'])) + np.sum(np.square(self.params['W2']))+np.sum(np.square(self.params['W3'])))
+        #if np.sum(np.square(self.params['W1'])) >= 1000:
+        #    import pdb; pdb.set_trace()
+        
+        loss_to_hidden_layer_out_gradient,dW3,db3 = affine_backward(loss_to_last_affine_gradient,last_affine_layer_cache)
+        loss_to_pool_out_gradient,dW2,db2= affine_relu_backward(loss_to_hidden_layer_out_gradient,hidden_cache)##affine backward dimention is one flattened vector.
+        loss_to_pool_out_gradient = loss_to_pool_out_gradient.reshape(conv_pool_out.shape)
+        loss_to_input_gradient,dW1,db1= conv_relu_pool_backward(loss_to_pool_out_gradient,conv_pool_cache)
+       
+        dW3 += self.reg * self.params['W3'] ##
+        dW2 += self.reg * self.params['W2'] ##
+        dW1 += self.reg * self.params['W1'] ##
+
+        grads['W3'] = dW3
+        grads['b3'] = db3
+        
+        grads['W2'] = dW2
+        grads['b2'] = db2
+
+        grads['W1'] = dW1
+        grads['b1'] = db1
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -97,7 +149,6 @@ class ThreeLayerConvNet(object):
         if y is None:
             return scores
 
-        loss, grads = 0, {}
         ############################################################################
         # TODO: Implement the backward pass for the three-layer convolutional net, #
         # storing the loss and gradients in the loss and grads variables. Compute  #
@@ -108,7 +159,6 @@ class ThreeLayerConvNet(object):
         # automated tests, make sure that your L2 regularization includes a factor #
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
-        pass
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################

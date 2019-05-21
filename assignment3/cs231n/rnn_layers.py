@@ -1,6 +1,9 @@
-from __future__ import print_function, division
+from __future__ import division, print_function
+
 from builtins import range
+
 import numpy as np
+from matplotlib.pyplot import axis
 
 
 """
@@ -34,7 +37,9 @@ def rnn_step_forward(x, prev_h, Wx, Wh, b):
     # hidden state and any values you need for the backward pass in the next_h   #
     # and cache variables respectively.                                          #
     ##############################################################################
-    pass
+    raw_h = prev_h.dot(Wh)+x.dot(Wx)+b  ##NxH.dot(H,H)+NxD.dot(DxH)+(H,)=NxH
+    next_h = np.tanh(raw_h)
+    cache=(prev_h,x,Wx,Wh,raw_h,next_h)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -63,7 +68,14 @@ def rnn_step_backward(dnext_h, cache):
     # HINT: For the tanh function, you can compute the local derivative in terms #
     # of the output value from tanh.                                             #
     ##############################################################################
-    pass
+    prev_h,x,Wx,Wh,raw_h,next_h = cache
+    dnext_h_vs_draw_h = 1 - np.square(np.tanh(raw_h))#1 - NxH
+    dloss_v_draw_h = dnext_h * dnext_h_vs_draw_h #NxH
+    dx = dloss_v_draw_h.dot(Wx.T) ###NxH*DxH= NxD
+    dprev_h = dloss_v_draw_h.dot(Wh.T)#NxH*HxH=NxH
+    dWx = x.T.dot(dloss_v_draw_h)#DxN*NxH=DxH
+    dWh = prev_h.T.dot(dloss_v_draw_h) #HxN*NxH=HxH
+    db = np.sum(dloss_v_draw_h,axis=0) ##sum up the gradient of all samples
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -94,7 +106,17 @@ def rnn_forward(x, h0, Wx, Wh, b):
     # input data. You should use the rnn_step_forward function that you defined  #
     # above. You can use a for loop to help compute the forward pass.            #
     ##############################################################################
-    pass
+    N,T,D = x.shape
+    N,H = h0.shape
+    h = np.zeros((T,N,H))
+    forward_cache = {}
+    for t in range(T):
+      if t == 0:
+        h[t],forward_cache[t] = rnn_step_forward(x[:,t,:],h0,Wx,Wh,b)
+      else:
+        h[t],forward_cache[t] = rnn_step_forward(x[:,t,:],h[t-1],Wx,Wh,b)
+    cache = (forward_cache,D)
+    h = h.transpose(1,0,2)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -126,7 +148,24 @@ def rnn_backward(dh, cache):
     # sequence of data. You should use the rnn_step_backward function that you   #
     # defined above. You can use a for loop to help compute the backward pass.   #
     ##############################################################################
-    pass
+    
+    forward_cache,D = cache
+    N,T,H = dh.shape
+    dx = np.zeros([N,T,D])
+    dh0 = []
+    dWx = np.zeros([D,H])
+    dWh = np.zeros([H,H])
+    db = np.zeros([H])
+    dprev_h = 0
+    for t in reversed(range(T)):
+      dh_ag = dh[:,t,:] + dprev_h
+      dx_current, dprev_h, dWx_current, dWh_current, db_current = rnn_step_backward(dh_ag,forward_cache[t])
+      dWx += dWx_current
+      dWh += dWh_current
+      db += db_current
+      dx[:,t,:] = dx_current
+  
+    dh0 = dprev_h
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -151,10 +190,11 @@ def word_embedding_forward(x, W):
     out, cache = None, None
     ##############################################################################
     # TODO: Implement the forward pass for word embeddings.                      #
-    #                                                                            #
+    out = W[x, :]
+    cache = x, W                                                             #
     # HINT: This can be done in one line using NumPy's array indexing.           #
     ##############################################################################
-    pass
+    
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -183,7 +223,9 @@ def word_embedding_backward(dout, cache):
     # Note that words can appear more than once in a sequence.                   #
     # HINT: Look up the function np.add.at                                       #
     ##############################################################################
-    pass
+    x, W = cache #x:NxT w:VxD 
+    dW = np.zeros_like(W)
+    np.add.at(dW, x, dout)###THis is really hard to
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -265,10 +307,10 @@ def lstm_step_backward(dnext_h, dnext_c, cache):
     #############################################################################
     pass
     ##############################################################################
-    #                               END OF YOUR CODE                             #
-    ##############################################################################
-
-    return dx, dprev_h, dprev_c, dWx, dWh, db
+    #                           dictionary    END OF YOUR CODE                             #
+    ############################dictionary##################################################
+dictionary
+    return dx, dprev_h, dprev_c,dictionary dWx, dWh, db
 
 
 def lstm_forward(x, h0, Wx, Wh, b):
@@ -414,7 +456,7 @@ def temporal_softmax_loss(x, y, mask, verbose=False):
     y_flat = y.reshape(N * T)
     mask_flat = mask.reshape(N * T)
 
-    probs = np.exp(x_flat - np.max(x_flat, axis=1, keepdims=True))
+    probs = np.exp(x_flat - np.max(x_flat, axis=1, keepdims=True))#N*TxV
     probs /= np.sum(probs, axis=1, keepdims=True)
     loss = -np.sum(mask_flat * np.log(probs[np.arange(N * T), y_flat])) / N
     dx_flat = probs.copy()

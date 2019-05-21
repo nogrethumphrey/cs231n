@@ -1,6 +1,7 @@
-from builtins import range
-from builtins import object
+from builtins import object, range
+
 import numpy as np
+from nltk.metrics import scores
 
 from cs231n.layers import *
 from cs231n.rnn_layers import *
@@ -50,11 +51,11 @@ class CaptioningRNN(object):
 
         # Initialize word vectors
         self.params['W_embed'] = np.random.randn(vocab_size, wordvec_dim)
-        self.params['W_embed'] /= 100
+        self.params['W_embed'] /= 100##make it small
 
         # Initialize CNN -> hidden state projection parameters
         self.params['W_proj'] = np.random.randn(input_dim, hidden_dim)
-        self.params['W_proj'] /= np.sqrt(input_dim)
+        self.params['W_proj'] /= np.sqrt(input_dim)##try to make W small
         self.params['b_proj'] = np.zeros(hidden_dim)
 
         # Initialize parameters for the RNN
@@ -96,8 +97,8 @@ class CaptioningRNN(object):
         # by one relative to each other because the RNN should produce word (t+1)
         # after receiving word t. The first element of captions_in will be the START
         # token, and the first element of captions_out will be the first word.
-        captions_in = captions[:, :-1]
-        captions_out = captions[:, 1:]
+        captions_in = captions[:, :-1]##NxT-1
+        captions_out = captions[:, 1:]##NxT-1
 
         # You'll need this
         mask = (captions_out != self._null)
@@ -121,26 +122,37 @@ class CaptioningRNN(object):
         # In the forward pass you will need to do the following:                   #
         # (1) Use an affine transformation to compute the initial hidden state     #
         #     from the image features. This should produce an array of shape (N, H)#
+        init_affine_out,init_affine_cache = affine_forward(features,W_proj,b_proj)
+
         # (2) Use a word embedding layer to transform the words in captions_in     #
         #     from indices to vectors, giving an array of shape (N, T, W).         #
+        word_vectors,word_embed_cache = word_embedding_forward(captions_in,W_embed)#(NxT-1) W_embed(vocab_sizexwordvec_dim) = NxT-1xwordvec_dim
         # (3) Use either a vanilla RNN or LSTM (depending on self.cell_type) to    #
         #     process the sequence of input word vectors and produce hidden state  #
         #     vectors for all timesteps, producing an array of shape (N, T, H).    #
+        all_hidden_states,rnn_cache = rnn_forward(word_vectors,init_affine_out,Wx,Wh,b)
         # (4) Use a (temporal) affine transformation to compute scores over the    #
         #     vocabulary at every timestep using the hidden states, giving an      #
-        #     array of shape (N, T, V).                                            #
+        #     array of shape (N, T, V).
+        affine_out,affine_cache = temporal_affine_forward(all_hidden_states,W_vocab,b_vocab)                                            #
         # (5) Use (temporal) softmax to compute loss using captions_out, ignoring  #
         #     the points where the output word is <NULL> using the mask above.     #
-        #                                                                          #
+        loss,dgrad_to_affine_out = temporal_softmax_loss(affine_out,captions_out,mask)                                                                          #
         # In the backward pass you will need to compute the gradient of the loss   #
         # with respect to all model parameters. Use the loss and grads variables   #
         # defined above to store loss and gradients; grads[k] should give the      #
         # gradients for self.params[k].                                            #
-        #                                                                          #
+        
+        dgrad_all_hidden,grads['W_vocab'],grads['b_vocab']= temporal_affine_backward(dgrad_to_affine_out,affine_cache)                                                                         #
+        dgrad_word_vectors,dgrad_init_h,grads['Wx'],grads['Wh'],grads['b']=rnn_backward(dgrad_all_hidden,rnn_cache)
+        
+        grads['W_embed']=word_embedding_backward(dgrad_word_vectors,word_embed_cache)
+
+        dx,grads['W_proj'],grads['b_proj']=affine_backward(dgrad_init_h,init_affine_cache)
         # Note also that you are allowed to make use of functions from layers.py   #
         # in your implementation, if needed.                                       #
         ############################################################################
-        pass
+        
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -188,13 +200,25 @@ class CaptioningRNN(object):
         # the RNN should be the <START> token; its value is stored in the         #
         # variable self._start. At each timestep you will need to do to:          #
         # (1) Embed the previous word using the learned word embeddings           #
+        init_affine_out,init_affine_cache = affine_forward(features,W_proj,b_proj)
+        next_h = None
+        for t in range(max_length):
+          if t == 0:
+            word_vectors,word_embed_cache = word_embedding_forward(self._start,W_embed)
         # (2) Make an RNN step using the previous hidden state and the embedded   #
-        #     current word to get the next hidden state.                          #
+        #     current word to get the next hidden state.
+            next_h, cache = rnn_step_forward(word_vectors,init_affine_out,Wx,Wh,b) 
         # (3) Apply the learned affine transformation to the next hidden state to #
-        #     get scores for all words in the vocabulary                          #
+        #     get scores for all words in the vocabulary
+            scores = next_h.dot(W_vocab) + b_vocab
         # (4) Select the word with the highest score as the next word, writing it #
         #     (the word index) to the appropriate slot in the captions variable   #
-        #                                                                         #
+            captions[:,t] = np.argmax(scores, axis=1)  
+          else:
+            word_vectors,word_embed_cache = word_embedding_forward(captions[:,t-1],W_embed)
+            next_h, cache = rnn_step_forward(word_vectors,next_h,Wx,Wh,b)
+            scores = next_h.dot(W_vocab) + b_vocab
+            captions[:,t] = np.argmax(scores, axis=1)                                                                      #
         # For simplicity, you do not need to stop generating after an <END> token #
         # is sampled, but you can if you want to.                                 #
         #                                                                         #
@@ -205,7 +229,6 @@ class CaptioningRNN(object):
         # NOTE: we are still working over minibatches in this function. Also if   #
         # you are using an LSTM, initialize the first cell state to zeros.        #
         ###########################################################################
-        pass
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
